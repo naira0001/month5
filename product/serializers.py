@@ -1,6 +1,8 @@
 # product/serializers.py
 from rest_framework import serializers
 from .models import Category, Product, Review
+from rest_framework.exceptions import ValidationError
+
 
 class CategoryDetailSerializer(serializers.ModelSerializer):
     class Meta:
@@ -53,3 +55,38 @@ class ProductWithReviewsSerializer(serializers.ModelSerializer):
         if reviews:
             return sum(review.stars for review in reviews) / len(reviews)
         return 0
+
+
+class CategoryValidateSerializer(serializers.Serializer):
+    name = serializers.CharField(min_length=1, max_length=100)
+
+    def validate_name(self, name):
+        if Category.objects.filter(name=name).exists():
+            raise ValidationError('Категория с таким именем уже существует.')
+        return name
+
+class ProductValidateSerializer(serializers.Serializer):
+    title = serializers.CharField(required=True, max_length=255)
+    description = serializers.CharField(required=True)
+    price = serializers.FloatField(min_value=0.01)
+    category = serializers.IntegerField(min_value=1)
+
+    def validate_title(self, title):
+        if Product.objects.filter(title=title).exists():
+            raise serializers.ValidationError('Такой товар уже существует.')
+        return title
+
+    def validate_category(self, category_id):
+        if not Category.objects.filter(id=category_id).exists():
+            raise serializers.ValidationError('Категория не найдена.')
+        return category_id
+
+class ReviewValidateSerializer(serializers.Serializer):
+    text = serializers.CharField()
+    stars = serializers.IntegerField(min_value=1, max_value=5)
+    product = serializers.IntegerField()
+
+    def validate_product(self, product_id):
+        if not Product.objects.filter(id=product_id).exists():
+            raise serializers.ValidationError("Товар с таким ID не существует.")
+        return product_id
